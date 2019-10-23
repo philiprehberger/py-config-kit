@@ -1,5 +1,9 @@
 # philiprehberger-config-kit
 
+[![Tests](https://github.com/philiprehberger/py-config-kit/actions/workflows/publish.yml/badge.svg)](https://github.com/philiprehberger/py-config-kit/actions/workflows/publish.yml)
+[![PyPI version](https://img.shields.io/pypi/v/philiprehberger-config-kit.svg)](https://pypi.org/project/philiprehberger-config-kit/)
+[![License](https://img.shields.io/github/license/philiprehberger/py-config-kit)](LICENSE)
+
 Layered configuration loader merging env vars, files, and defaults.
 
 ## Install

@@ -75,6 +75,14 @@ DEBUG=true
 
 `get_bool()` accepts: `true`/`false`, `1`/`0`, `yes`/`no`, `on`/`off`
 
+
+## Development
+
+```bash
+pip install -e .
+python -m pytest tests/ -v
+```
+
 ## License
 
 MIT

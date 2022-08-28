@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "philiprehberger-config-kit"
-version = "0.1.5"
+version = "0.1.8"
 description = "Layered configuration loader merging env vars, files, and defaults"
 readme = "README.md"
 license = "MIT"
@@ -31,3 +31,9 @@ Changelog = "https://github.com/philiprehberger/py-config-kit/blob/main/CHANGELO
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/philiprehberger_config_kit"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.mypy]
+strict = true

@@ -2,7 +2,11 @@
 
 [![Tests](https://github.com/philiprehberger/py-config-kit/actions/workflows/publish.yml/badge.svg)](https://github.com/philiprehberger/py-config-kit/actions/workflows/publish.yml)
 [![PyPI version](https://img.shields.io/pypi/v/philiprehberger-config-kit.svg)](https://pypi.org/project/philiprehberger-config-kit/)
+[![GitHub release](https://img.shields.io/github/v/release/philiprehberger/py-config-kit)](https://github.com/philiprehberger/py-config-kit/releases)
+[![Last updated](https://img.shields.io/github/last-commit/philiprehberger/py-config-kit)](https://github.com/philiprehberger/py-config-kit/commits/main)
 [![License](https://img.shields.io/github/license/philiprehberger/py-config-kit)](LICENSE)
+[![Bug Reports](https://img.shields.io/github/issues/philiprehberger/py-config-kit/bug)](https://github.com/philiprehberger/py-config-kit/issues?q=is%3Aissue+is%3Aopen+label%3Abug)
+[![Feature Requests](https://img.shields.io/github/issues/philiprehberger/py-config-kit/enhancement)](https://github.com/philiprehberger/py-config-kit/issues?q=is%3Aissue+is%3Aopen+label%3Aenhancement)
 [![Sponsor](https://img.shields.io/badge/sponsor-GitHub%20Sponsors-ec6cb9)](https://github.com/sponsors/philiprehberger)
 
 Layered configuration loader merging env vars, files, and defaults.
@@ -14,6 +18,8 @@ pip install philiprehberger-config-kit
 ```
 
 ## Usage
+
+### Basic Setup
 
 ```python
 from philiprehberger_config_kit import Config
@@ -45,9 +51,9 @@ if config.has("cache_ttl"):
     ttl = config.get_int("cache_ttl")
 ```
 
-## Source Priority
+### Source Priority
 
-Sources are applied in order — later sources override earlier ones:
+Sources are applied in order -- later sources override earlier ones:
 
 ```python
 Config(sources=[
@@ -58,13 +64,47 @@ Config(sources=[
 ])
 ```
 
-## Environment Variables
+### Typed List Getters
+
+Parse comma-separated values into typed lists:
+
+```python
+config = Config(sources=[
+    Config.defaults({"ports": "8080,8081,8082", "rates": "1.5,2.0,3.7"}),
+])
+
+ports = config.get_int_list("ports")      # [8080, 8081, 8082]
+rates = config.get_float_list("rates")    # [1.5, 2.0, 3.7]
+
+# Custom separator
+config2 = Config(sources=[Config.defaults({"ids": "1|2|3"})])
+config2.get_int_list("ids", sep="|")      # [1, 2, 3]
+```
+
+### Config Flattening
+
+Export nested config as a flat dictionary with dot-notation keys:
+
+```python
+config = Config(sources=[
+    Config.defaults({"db": {"host": "localhost", "port": 5432}, "debug": True}),
+])
+
+flat = config.flatten()
+# {"db.host": "localhost", "db.port": "5432", "debug": "True"}
+
+# With a prefix
+flat = config.flatten(prefix="app")
+# {"app.db.host": "localhost", "app.db.port": "5432", "app.debug": "True"}
+```
+
+### Environment Variables
 
 With `prefix="APP_"`, env vars are mapped:
-- `APP_PORT` → `port`
-- `APP_DATABASE__HOST` → `database.host` (double underscore = nested)
+- `APP_PORT` -> `port`
+- `APP_DATABASE__HOST` -> `database.host` (double underscore = nested)
 
-## .env Files
+### .env Files
 
 ```env
 DATABASE_URL=postgresql://localhost/mydb
@@ -72,16 +112,18 @@ SECRET_KEY="my-secret"
 DEBUG=true
 ```
 
-## Bool Coercion
+### Bool Coercion
 
 `get_bool()` accepts: `true`/`false`, `1`/`0`, `yes`/`no`, `on`/`off`
-
 
 ## API
 
 | Function / Class | Description |
 |------------------|-------------|
 | `Config(sources)` | Layered configuration with typed access via `get()`, `get_str()`, `get_int()`, `get_float()`, `get_bool()`, `get_list()` |
+| `Config.get_int_list(key, sep)` | Split a string value and convert each element to int |
+| `Config.get_float_list(key, sep)` | Split a string value and convert each element to float |
+| `Config.flatten(prefix)` | Export nested config as flat dict with dot-notation keys |
 | `ConfigError(missing)` | Raised when required config keys are missing |
 
 ## Development
@@ -91,6 +133,13 @@ pip install -e .
 python -m pytest tests/ -v
 ```
 
+## Support
+
+If you find this package useful, consider giving it a star on GitHub — it helps motivate continued maintenance and development.
+
+[![LinkedIn](https://img.shields.io/badge/Philip%20Rehberger-LinkedIn-0A66C2?logo=linkedin)](https://www.linkedin.com/in/philiprehberger)
+[![More packages](https://img.shields.io/badge/more-open%20source%20packages-blue)](https://philiprehberger.com/open-source-packages)
+
 ## License
 
-MIT
+[MIT](LICENSE)

@@ -2,12 +2,20 @@
 
 from __future__ import annotations
 
+import copy
 import json
 import os
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-__all__ = ["Config", "ConfigError"]
+__all__ = [
+    "Config",
+    "ConfigError",
+    "ConfigSchema",
+    "ConfigSnapshot",
+    "SchemaError",
+]
 
 
 class ConfigError(Exception):
@@ -18,6 +26,134 @@ class ConfigError(Exception):
         super().__init__(
             f"Missing required config keys: {', '.join(missing)}"
         )
+
+
+class SchemaError(Exception):
+    """Raised when config values fail schema validation."""
+
+    def __init__(self, errors: list[str]) -> None:
+        self.errors = errors
+        super().__init__(
+            "Schema validation failed:\n" + "\n".join(f"  - {e}" for e in errors)
+        )
+
+
+@dataclass
+class _FieldSchema:
+    """Schema definition for a single config field."""
+
+    key: str
+    expected_type: type | None = None
+    required: bool = False
+    choices: list[Any] | None = None
+
+
+class ConfigSchema:
+    """Define expected keys, types, and required/optional fields for validation.
+
+    Example::
+
+        schema = ConfigSchema()
+        schema.required("host", str)
+        schema.required("port", int)
+        schema.optional("debug", bool)
+        schema.optional("mode", str, choices=["dev", "prod", "test"])
+
+        config.validate(schema)
+    """
+
+    def __init__(self) -> None:
+        self._fields: list[_FieldSchema] = []
+
+    def required(
+        self,
+        key: str,
+        expected_type: type | None = None,
+        *,
+        choices: list[Any] | None = None,
+    ) -> ConfigSchema:
+        """Add a required field to the schema.
+
+        Args:
+            key: Config key (supports dot notation).
+            expected_type: Expected Python type for the value.
+            choices: If provided, value must be one of these.
+
+        Returns:
+            Self for chaining.
+        """
+        self._fields.append(
+            _FieldSchema(key=key, expected_type=expected_type, required=True, choices=choices)
+        )
+        return self
+
+    def optional(
+        self,
+        key: str,
+        expected_type: type | None = None,
+        *,
+        choices: list[Any] | None = None,
+    ) -> ConfigSchema:
+        """Add an optional field to the schema.
+
+        Args:
+            key: Config key (supports dot notation).
+            expected_type: Expected Python type for the value.
+            choices: If provided, value must be one of these.
+
+        Returns:
+            Self for chaining.
+        """
+        self._fields.append(
+            _FieldSchema(key=key, expected_type=expected_type, required=False, choices=choices)
+        )
+        return self
+
+
+@dataclass
+class ConfigSnapshot:
+    """Immutable snapshot of config state at a point in time."""
+
+    data: dict[str, Any] = field(default_factory=dict)
+
+    def diff(self, other: ConfigSnapshot) -> dict[str, dict[str, Any]]:
+        """Compare this snapshot with another and return differences.
+
+        Returns a dict with three keys:
+
+        - ``added``: keys present in *other* but not in this snapshot.
+        - ``removed``: keys present in this snapshot but not in *other*.
+        - ``changed``: keys present in both but with different values
+          (each entry maps to ``{"old": ..., "new": ...}``).
+
+        Both snapshots are flattened to dot-notation keys for comparison.
+        """
+        flat_self = _flatten_dict(self.data)
+        flat_other = _flatten_dict(other.data)
+
+        self_keys = set(flat_self)
+        other_keys = set(flat_other)
+
+        added: dict[str, Any] = {k: flat_other[k] for k in other_keys - self_keys}
+        removed: dict[str, Any] = {k: flat_self[k] for k in self_keys - other_keys}
+        changed: dict[str, Any] = {}
+        for k in self_keys & other_keys:
+            if flat_self[k] != flat_other[k]:
+                changed[k] = {"old": flat_self[k], "new": flat_other[k]}
+
+        return {"added": added, "removed": removed, "changed": changed}
+
+
+def _flatten_dict(data: dict[str, Any], prefix: str = "") -> dict[str, Any]:
+    """Flatten a nested dict into dot-notation keys, preserving value types."""
+    result: dict[str, Any] = {}
+    for key, value in data.items():
+        full_key = f"{prefix}.{key}" if prefix else key
+        if isinstance(value, dict):
+            result.update(_flatten_dict(value, full_key))
+        else:
+            result[full_key] = value
+    return result
 
 
 class _Source:
@@ -142,13 +278,18 @@ class Config:
     """
 
     def __init__(self, sources: list[_Source] | None = None) -> None:
+        self._sources: list[_Source] = list(sources) if sources else []
         self._data: dict[str, Any] = {}
         self._frozen = False
-        if sources:
-            for source in sources:
-                loaded = source.load()
-                unflattened = _unflatten(loaded)
-                self._data = _deep_merge(self._data, unflattened)
+        self._load_sources()
+
+    def _load_sources(self) -> None:
+        """Load and merge all sources into internal data."""
+        self._data = {}
+        for source in self._sources:
+            loaded = source.load()
+            unflattened = _unflatten(loaded)
+            self._data = _deep_merge(self._data, unflattened)
 
     # --- Source factories ---
 
@@ -291,7 +432,48 @@ class Config:
         """Check if a key exists."""
         return _get_nested(self._data, key) is not _MISSING
 
+    def validate(self, schema: ConfigSchema) -> None:
+        """Validate the config against a schema.
+
+        Checks required keys are present, values match expected types,
+        and values are within allowed choices.
+
+        Args:
+            schema: A ``ConfigSchema`` defining expected fields.
+
+        Raises:
+            SchemaError: If any validation rule fails, with a list of
+                all errors found.
+        """
+        errors: list[str] = []
+        for f in schema._fields:
+            value = _get_nested(self._data, f.key)
+            if value is _MISSING:
+                if f.required:
+                    errors.append(f"Missing required key: '{f.key}'")
+                continue
+            if f.expected_type is not None and not isinstance(value, f.expected_type):
+                errors.append(
+                    f"Key '{f.key}' expected type {f.expected_type.__name__}, "
+                    f"got {type(value).__name__}"
+                )
+            if f.choices is not None and value not in f.choices:
+                errors.append(
+                    f"Key '{f.key}' value {value!r} not in allowed choices: {f.choices}"
+                )
+        if errors:
+            raise SchemaError(errors)
+
     # --- Utilities ---
+
+    def reload(self) -> None:
+        """Reload configuration from all sources.
+
+        Re-reads every source (env vars, files, defaults) and rebuilds
+        the merged config data. Useful when environment variables or
+        config files change at runtime.
+        """
+        self._load_sources()
 
     def flatten(self, prefix: str = "") -> dict[str, str]:
         """Export the config as a flat dictionary with dot-notation keys.
@@ -318,9 +500,44 @@ class Config:
         return _flatten_recurse(self._data, prefix)
 
     def to_dict(self) -> dict[str, Any]:
-        """Return a deep copy of the config data."""
-        import copy
+        """Return a deep copy of the config data as a nested dictionary."""
         return copy.deepcopy(self._data)
+
+    def to_env(self, prefix: str = "") -> dict[str, str]:
+        """Export the config as environment-variable-style key-value pairs.
+
+        Nested keys are joined with ``_`` and uppercased.
+        All values are converted to strings.
+
+        Args:
+            prefix: Optional prefix prepended to all keys (e.g. ``"APP"``
+                produces ``APP_DATABASE_HOST``).
+
+        Returns:
+            Dictionary of ``UPPER_SNAKE_CASE`` keys to string values.
+        """
+
+        def _to_env_recurse(data: dict[str, Any], parts: list[str]) -> dict[str, str]:
+            result: dict[str, str] = {}
+            for key, value in data.items():
+                current_parts = [*parts, key.upper()]
+                if isinstance(value, dict):
+                    result.update(_to_env_recurse(value, current_parts))
+                else:
+                    result["_".join(current_parts)] = str(value)
+            return result
+
+        top_parts = [prefix.upper()] if prefix else []
+        return _to_env_recurse(self._data, top_parts)
+
+    def snapshot(self) -> ConfigSnapshot:
+        """Capture the current config state as an immutable snapshot.
+
+        Returns:
+            A ``ConfigSnapshot`` that can be compared with another snapshot
+            via its ``diff()`` method.
+        """
+        return ConfigSnapshot(data=copy.deepcopy(self._data))
 
     def freeze(self) -> Config:
         """Return a frozen copy that raises on mutation attempts."""

@@ -6,7 +6,7 @@
 
 Layered configuration loader merging env vars, files, and defaults.
 
-## Install
+## Installation
 
 ```bash
 pip install philiprehberger-config-kit
@@ -75,6 +75,13 @@ DEBUG=true
 
 `get_bool()` accepts: `true`/`false`, `1`/`0`, `yes`/`no`, `on`/`off`
 
+
+## API
+
+| Function / Class | Description |
+|------------------|-------------|
+| `Config(sources)` | Layered configuration with typed access via `get()`, `get_str()`, `get_int()`, `get_float()`, `get_bool()`, `get_list()` |
+| `ConfigError(missing)` | Raised when required config keys are missing |
 
 ## Development
 

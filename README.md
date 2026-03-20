@@ -44,7 +44,7 @@ if config.has("cache_ttl"):
     ttl = config.get_int("cache_ttl")
 ```
 
-## Source Priority
+### Source Priority
 
 Sources are applied in order — later sources override earlier ones:
 
@@ -57,13 +57,13 @@ Config(sources=[
 ])
 ```
 
-## Environment Variables
+### Environment Variables
 
 With `prefix="APP_"`, env vars are mapped:
 - `APP_PORT` → `port`
 - `APP_DATABASE__HOST` → `database.host` (double underscore = nested)
 
-## .env Files
+### .env Files
 
 ```env
 DATABASE_URL=postgresql://localhost/mydb
@@ -71,10 +71,9 @@ SECRET_KEY="my-secret"
 DEBUG=true
 ```
 
-## Bool Coercion
+### Bool Coercion
 
 `get_bool()` accepts: `true`/`false`, `1`/`0`, `yes`/`no`, `on`/`off`
-
 
 ## API
 

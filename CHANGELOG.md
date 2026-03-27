@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.0 (2026-03-27)
+
+- Add `get_int_list()` and `get_float_list()` typed list getters
+- Add `flatten()` for exporting nested config as flat dot-notation dict
+- Add issue templates, PR template, and Dependabot config
+- Add full badge set and Support section to README
+
 ## 0.1.8 (2026-03-22)
 
 - Add pytest and mypy configuration to pyproject.toml

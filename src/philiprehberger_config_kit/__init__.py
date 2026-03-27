@@ -222,6 +222,52 @@ class Config:
             return False
         raise ValueError(f"Cannot convert '{value}' to bool for key '{key}'")
 
+    def get_int_list(self, key: str, sep: str = ",") -> list[int]:
+        """Get a list of integers by splitting a string value.
+
+        Args:
+            key: Config key (supports dot notation).
+            sep: Separator to split on (default ``","``).
+
+        Returns:
+            List of integers.
+
+        Raises:
+            KeyError: If key is not found.
+            ConfigError: If any element cannot be converted to int.
+        """
+        value = _get_nested(self._data, key)
+        if value is _MISSING:
+            raise KeyError(f"Config key not found: {key}")
+        parts = [item.strip() for item in str(value).split(sep) if item.strip()]
+        try:
+            return [int(p) for p in parts]
+        except ValueError as exc:
+            raise ConfigError([key]) from exc
+
+    def get_float_list(self, key: str, sep: str = ",") -> list[float]:
+        """Get a list of floats by splitting a string value.
+
+        Args:
+            key: Config key (supports dot notation).
+            sep: Separator to split on (default ``","``).
+
+        Returns:
+            List of floats.
+
+        Raises:
+            KeyError: If key is not found.
+            ConfigError: If any element cannot be converted to float.
+        """
+        value = _get_nested(self._data, key)
+        if value is _MISSING:
+            raise KeyError(f"Config key not found: {key}")
+        parts = [item.strip() for item in str(value).split(sep) if item.strip()]
+        try:
+            return [float(p) for p in parts]
+        except ValueError as exc:
+            raise ConfigError([key]) from exc
+
     def get_list(self, key: str, separator: str = ",", default: list | None = None) -> list[str]:
         """Get a list by splitting a string value."""
         value = _get_nested(self._data, key)
@@ -246,6 +292,30 @@ class Config:
         return _get_nested(self._data, key) is not _MISSING
 
     # --- Utilities ---
+
+    def flatten(self, prefix: str = "") -> dict[str, str]:
+        """Export the config as a flat dictionary with dot-notation keys.
+
+        All values are converted to strings.
+
+        Args:
+            prefix: Optional prefix for all keys.
+
+        Returns:
+            Flat dictionary, e.g. ``{"db.host": "localhost", "db.port": "5432"}``.
+        """
+
+        def _flatten_recurse(data: dict[str, Any], current_prefix: str) -> dict[str, str]:
+            result: dict[str, str] = {}
+            for key, value in data.items():
+                full_key = f"{current_prefix}.{key}" if current_prefix else key
+                if isinstance(value, dict):
+                    result.update(_flatten_recurse(value, full_key))
+                else:
+                    result[full_key] = str(value)
+            return result
+
+        return _flatten_recurse(self._data, prefix)
 
     def to_dict(self) -> dict[str, Any]:
         """Return a deep copy of the config data."""

@@ -3,6 +3,7 @@
 [![Tests](https://github.com/philiprehberger/py-config-kit/actions/workflows/publish.yml/badge.svg)](https://github.com/philiprehberger/py-config-kit/actions/workflows/publish.yml)
 [![PyPI version](https://img.shields.io/pypi/v/philiprehberger-config-kit.svg)](https://pypi.org/project/philiprehberger-config-kit/)
 [![License](https://img.shields.io/github/license/philiprehberger/py-config-kit)](LICENSE)
+[![Sponsor](https://img.shields.io/badge/sponsor-GitHub%20Sponsors-ec6cb9)](https://github.com/sponsors/philiprehberger)
 
 Layered configuration loader merging env vars, files, and defaults.
 

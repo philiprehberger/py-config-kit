@@ -2,12 +2,7 @@
 
 [![Tests](https://github.com/philiprehberger/py-config-kit/actions/workflows/publish.yml/badge.svg)](https://github.com/philiprehberger/py-config-kit/actions/workflows/publish.yml)
 [![PyPI version](https://img.shields.io/pypi/v/philiprehberger-config-kit.svg)](https://pypi.org/project/philiprehberger-config-kit/)
-[![GitHub release](https://img.shields.io/github/v/release/philiprehberger/py-config-kit)](https://github.com/philiprehberger/py-config-kit/releases)
 [![Last updated](https://img.shields.io/github/last-commit/philiprehberger/py-config-kit)](https://github.com/philiprehberger/py-config-kit/commits/main)
-[![License](https://img.shields.io/github/license/philiprehberger/py-config-kit)](LICENSE)
-[![Bug Reports](https://img.shields.io/github/issues/philiprehberger/py-config-kit/bug)](https://github.com/philiprehberger/py-config-kit/issues?q=is%3Aissue+is%3Aopen+label%3Abug)
-[![Feature Requests](https://img.shields.io/github/issues/philiprehberger/py-config-kit/enhancement)](https://github.com/philiprehberger/py-config-kit/issues?q=is%3Aissue+is%3Aopen+label%3Aenhancement)
-[![Sponsor](https://img.shields.io/badge/sponsor-GitHub%20Sponsors-ec6cb9)](https://github.com/sponsors/philiprehberger)
 
 Layered configuration loader merging env vars, files, and defaults.
 
@@ -135,10 +130,21 @@ python -m pytest tests/ -v
 
 ## Support
 
-If you find this package useful, consider giving it a star on GitHub — it helps motivate continued maintenance and development.
+If you find this project useful:
 
-[![LinkedIn](https://img.shields.io/badge/Philip%20Rehberger-LinkedIn-0A66C2?logo=linkedin)](https://www.linkedin.com/in/philiprehberger)
-[![More packages](https://img.shields.io/badge/more-open%20source%20packages-blue)](https://philiprehberger.com/open-source-packages)
+⭐ [Star the repo](https://github.com/philiprehberger/py-config-kit)
+
+🐛 [Report issues](https://github.com/philiprehberger/py-config-kit/issues?q=is%3Aissue+is%3Aopen+label%3Abug)
+
+💡 [Suggest features](https://github.com/philiprehberger/py-config-kit/issues?q=is%3Aissue+is%3Aopen+label%3Aenhancement)
+
+❤️ [Sponsor development](https://github.com/sponsors/philiprehberger)
+
+🌐 [All Open Source Projects](https://philiprehberger.com/open-source-packages)
+
+💻 [GitHub Profile](https://github.com/philiprehberger)
+
+🔗 [LinkedIn Profile](https://www.linkedin.com/in/philiprehberger)
 
 ## License
 

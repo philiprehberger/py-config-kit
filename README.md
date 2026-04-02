@@ -14,8 +14,6 @@ pip install philiprehberger-config-kit
 
 ## Usage
 
-### Basic Setup
-
 ```python
 from philiprehberger_config_kit import Config
 
@@ -34,16 +32,27 @@ debug = config.get_bool("debug")
 db_url = config.get_str("database_url")
 timeout = config.get_float("timeout", default=5.0)
 hosts = config.get_list("allowed_hosts")
+```
 
-# Nested access (dot notation)
-redis_host = config.get_str("redis.host")
+### Dot-Notation Access
 
-# Validation
-config.require("database_url", "secret_key")  # raises ConfigError if missing
+Retrieve nested values using dot-separated keys:
 
-# Check existence
-if config.has("cache_ttl"):
-    ttl = config.get_int("cache_ttl")
+```python
+from philiprehberger_config_kit import Config
+
+config = Config(
+    sources=[
+        Config.defaults({
+            "database": {"host": "localhost", "port": 5432},
+            "cache": {"redis": {"url": "redis://localhost"}},
+        }),
+    ]
+)
+
+host = config.get("database.host")           # "localhost"
+port = config.get_int("database.port")        # 5432
+url = config.get_str("cache.redis.url")       # "redis://localhost"
 ```
 
 ### Source Priority
@@ -51,7 +60,9 @@ if config.has("cache_ttl"):
 Sources are applied in order -- later sources override earlier ones:
 
 ```python
-Config(sources=[
+from philiprehberger_config_kit import Config
+
+config = Config(sources=[
     Config.defaults({...}),       # lowest priority
     Config.json_file("..."),      # overrides defaults
     Config.env_file(".env"),      # overrides JSON
@@ -59,11 +70,92 @@ Config(sources=[
 ])
 ```
 
+### Schema Validation
+
+Define expected keys, types, and allowed values, then validate:
+
+```python
+from philiprehberger_config_kit import Config, ConfigSchema, SchemaError
+
+config = Config(sources=[
+    Config.defaults({"host": "localhost", "port": 5432, "mode": "dev"}),
+])
+
+schema = ConfigSchema()
+schema.required("host", str)
+schema.required("port", int)
+schema.optional("debug", bool)
+schema.required("mode", str, choices=["dev", "prod", "test"])
+
+config.validate(schema)  # raises SchemaError with all failures listed
+```
+
+### Reload
+
+Refresh configuration from all sources at runtime:
+
+```python
+from philiprehberger_config_kit import Config
+
+config = Config(sources=[Config.env(prefix="APP_")])
+port = config.get("port")
+
+# After environment changes...
+config.reload()
+port = config.get("port")  # picks up the new value
+```
+
+### Export Methods
+
+```python
+from philiprehberger_config_kit import Config
+
+config = Config(sources=[
+    Config.defaults({"db": {"host": "localhost", "port": 5432}, "debug": True}),
+])
+
+# Deep copy as nested dict
+data = config.to_dict()
+# {"db": {"host": "localhost", "port": 5432}, "debug": True}
+
+# Flat dict with dot-notation keys (string values)
+flat = config.flatten()
+# {"db.host": "localhost", "db.port": "5432", "debug": "True"}
+
+# Environment variable format (UPPER_SNAKE_CASE, string values)
+env = config.to_env(prefix="APP")
+# {"APP_DB_HOST": "localhost", "APP_DB_PORT": "5432", "APP_DEBUG": "True"}
+```
+
+### Config Snapshot Diffing
+
+Capture config state and compare snapshots to see what changed:
+
+```python
+from philiprehberger_config_kit import Config
+
+config = Config(sources=[
+    Config.defaults({"host": "localhost", "port": 3000}),
+    Config.env(prefix="APP_"),
+])
+
+before = config.snapshot()
+
+# ... environment changes, then reload ...
+config.reload()
+after = config.snapshot()
+
+diff = before.diff(after)
+# {"added": {...}, "removed": {...}, "changed": {"port": {"old": "3000", "new": "8080"}}}
+```
+
 ### Typed List Getters
 
 Parse comma-separated values into typed lists:
 
 ```python
+from philiprehberger_config_kit import Config
+
 config = Config(sources=[
     Config.defaults({"ports": "8080,8081,8082", "rates": "1.5,2.0,3.7"}),
 ])
@@ -76,36 +168,11 @@ config2 = Config(sources=[Config.defaults({"ids": "1|2|3"})])
 config2.get_int_list("ids", sep="|")      # [1, 2, 3]
 ```
 
-### Config Flattening
-
-Export nested config as a flat dictionary with dot-notation keys:
-
-```python
-config = Config(sources=[
-    Config.defaults({"db": {"host": "localhost", "port": 5432}, "debug": True}),
-])
-
-flat = config.flatten()
-# {"db.host": "localhost", "db.port": "5432", "debug": "True"}
-
-# With a prefix
-flat = config.flatten(prefix="app")
-# {"app.db.host": "localhost", "app.db.port": "5432", "app.debug": "True"}
-```
-
 ### Environment Variables
 
 With `prefix="APP_"`, env vars are mapped:
 - `APP_PORT` -> `port`
 - `APP_DATABASE__HOST` -> `database.host` (double underscore = nested)
-
-### .env Files
-
-```env
-DATABASE_URL=postgresql://localhost/mydb
-SECRET_KEY="my-secret"
-DEBUG=true
-```
 
 ### Bool Coercion
 
@@ -115,11 +182,31 @@ DEBUG=true
 
 | Function / Class | Description |
 |------------------|-------------|
-| `Config(sources)` | Layered configuration with typed access via `get()`, `get_str()`, `get_int()`, `get_float()`, `get_bool()`, `get_list()` |
+| `Config(sources)` | Layered configuration with typed access |
+| `Config.get(key, default)` | Get a value by key with dot-notation support |
+| `Config.get_str(key, default)` | Get a string value |
+| `Config.get_int(key, default)` | Get an integer value |
+| `Config.get_float(key, default)` | Get a float value |
+| `Config.get_bool(key, default)` | Get a boolean value with coercion |
+| `Config.get_list(key, separator, default)` | Get a list by splitting a string value |
 | `Config.get_int_list(key, sep)` | Split a string value and convert each element to int |
 | `Config.get_float_list(key, sep)` | Split a string value and convert each element to float |
-| `Config.flatten(prefix)` | Export nested config as flat dict with dot-notation keys |
+| `Config.require(*keys)` | Raise `ConfigError` if any keys are missing |
+| `Config.has(key)` | Check if a key exists |
+| `Config.validate(schema)` | Validate config against a `ConfigSchema` |
+| `Config.reload()` | Reload configuration from all sources |
+| `Config.to_dict()` | Return a deep copy as a nested dictionary |
+| `Config.to_env(prefix)` | Export as `UPPER_SNAKE_CASE` environment variable pairs |
+| `Config.flatten(prefix)` | Export as flat dict with dot-notation keys |
+| `Config.snapshot()` | Capture current state as a `ConfigSnapshot` |
+| `Config.freeze()` | Freeze the config to prevent mutation |
+| `ConfigSchema` | Define expected keys, types, required/optional, and choices |
+| `ConfigSchema.required(key, type, choices)` | Add a required field to the schema |
+| `ConfigSchema.optional(key, type, choices)` | Add an optional field to the schema |
+| `ConfigSnapshot` | Immutable snapshot of config state |
+| `ConfigSnapshot.diff(other)` | Compare two snapshots and return added/removed/changed keys |
 | `ConfigError(missing)` | Raised when required config keys are missing |
+| `SchemaError(errors)` | Raised when config values fail schema validation |
 
 ## Development
 

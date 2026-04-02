@@ -4,13 +4,13 @@ build-backend = "hatchling.build"
 
 [project]
 name = "philiprehberger-config-kit"
-version = "0.2.1"
-description = "Layered configuration loader merging env vars, files, and defaults"
+version = "0.3.0"
+description = "Layered configuration loader merging env vars, files, and defaults."
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"
 authors = [{ name = "Philip Rehberger" }]
-keywords = ["config", "configuration", "settings", "yaml", "environment"]
+keywords = ["config", "configuration", "settings", "environment", "layered"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",

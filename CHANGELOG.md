@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.3.0 (2026-04-01)
+
+- Add schema validation with `ConfigSchema` for defining expected keys, types, required/optional, and allowed choices
+- Add `SchemaError` exception with detailed error messages for all validation failures
+- Add `reload()` method to refresh configuration from all sources at runtime
+- Add `to_env()` export method for converting config to `UPPER_SNAKE_CASE` environment variable pairs
+- Add `snapshot()` method and `ConfigSnapshot` class for capturing config state
+- Add snapshot diffing via `ConfigSnapshot.diff()` to compare added, removed, and changed keys
+- Add comprehensive test suite covering all features
+
 ## 0.2.1 (2026-03-31)
 
 - Standardize README to 3-badge format with emoji Support section

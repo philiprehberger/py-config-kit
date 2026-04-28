@@ -105,6 +105,27 @@ config.reload()
 port = config.get("port")  # picks up the new value
 ```
 
+### Change Listeners
+
+Get notified when a value changes after `reload()`:
+
+```python
+from philiprehberger_config_kit import Config
+
+config = Config(sources=[Config.json_file("config.json")])
+
+def log_change(key, old, new):
+    print(f"{key}: {old!r} -> {new!r}")
+
+unsubscribe = config.on_change(log_change)
+
+# Later, after the source file changes on disk:
+config.reload()
+# log_change is called once per dotted key whose value changed
+
+unsubscribe()  # stop listening
+```
+
 ### Export Methods
 
 ```python
@@ -195,6 +216,7 @@ With `prefix="APP_"`, env vars are mapped:
 | `Config.has(key)` | Check if a key exists |
 | `Config.validate(schema)` | Validate config against a `ConfigSchema` |
 | `Config.reload()` | Reload configuration from all sources |
+| `Config.on_change(callback)` | Register `(key, old, new)` listener; returns unsubscribe |
 | `Config.to_dict()` | Return a deep copy as a nested dictionary |
 | `Config.to_env(prefix)` | Export as `UPPER_SNAKE_CASE` environment variable pairs |
 | `Config.flatten(prefix)` | Export as flat dict with dot-notation keys |

@@ -7,7 +7,7 @@ import json
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 __all__ = [
     "Config",
@@ -281,6 +281,7 @@ class Config:
         self._sources: list[_Source] = list(sources) if sources else []
         self._data: dict[str, Any] = {}
         self._frozen = False
+        self._listeners: list[Callable[[str, Any, Any], None]] = []
         self._load_sources()
 
     def _load_sources(self) -> None:
@@ -471,9 +472,53 @@ class Config:
 
         Re-reads every source (env vars, files, defaults) and rebuilds
         the merged config data. Useful when environment variables or
-        config files change at runtime.
+        config files change at runtime. Registered ``on_change`` listeners
+        are notified for every dotted key whose value differs from before.
         """
-        self._load_sources()
+        previous = self._data
+        self._data = {}
+        for source in self._sources:
+            loaded = source.load()
+            unflattened = _unflatten(loaded)
+            self._data = _deep_merge(self._data, unflattened)
+
+        if self._listeners:
+            self._notify_changes(previous, self._data)
+
+    def on_change(self, callback: Callable[[str, Any, Any], None]) -> Callable[[], None]:
+        """Register a listener for config value changes.
+
+        The callback is invoked as ``callback(key, old, new)`` for every dotted
+        key whose value differs after a :meth:`reload` call. Listeners fire in
+        registration order. Same-value reloads do not fire.
+
+        Args:
+            callback: Function called with ``(dotted_key, old_value, new_value)``.
+
+        Returns:
+            An unsubscribe function — call it to remove this listener.
+        """
+        self._listeners.append(callback)
+
+        def unsubscribe() -> None:
+            try:
+                self._listeners.remove(callback)
+            except ValueError:
+                pass
+
+        return unsubscribe
+
+    def _notify_changes(self, before: dict[str, Any], after: dict[str, Any]) -> None:
+        flat_before = _flatten_dict(before)
+        flat_after = _flatten_dict(after)
+        all_keys = set(flat_before) | set(flat_after)
+        for key in sorted(all_keys):
+            old = flat_before.get(key, _MISSING)
+            new = flat_after.get(key, _MISSING)
+            if old == new:
+                continue
+            for listener in list(self._listeners):
+                listener(key, None if old is _MISSING else old, None if new is _MISSING else new)
 
     def flatten(self, prefix: str = "") -> dict[str, str]:
         """Export the config as a flat dictionary with dot-notation keys.

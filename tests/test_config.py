@@ -591,3 +591,73 @@ class TestImport:
         assert "ConfigSchema" in __all__
         assert "ConfigSnapshot" in __all__
         assert "SchemaError" in __all__
+
+
+class TestOnChange:
+    def test_listener_fires_on_changed_value(self, tmp_path: Path) -> None:
+        cfg_file = tmp_path / "c.json"
+        cfg_file.write_text(json.dumps({"db": {"host": "a"}}))
+        config = Config([Config.json_file(cfg_file)])
+
+        events: list[tuple[str, object, object]] = []
+        config.on_change(lambda key, old, new: events.append((key, old, new)))
+
+        cfg_file.write_text(json.dumps({"db": {"host": "b"}}))
+        config.reload()
+
+        assert ("db.host", "a", "b") in events
+
+    def test_listener_fires_on_added_and_removed_keys(self, tmp_path: Path) -> None:
+        cfg_file = tmp_path / "c.json"
+        cfg_file.write_text(json.dumps({"x": 1}))
+        config = Config([Config.json_file(cfg_file)])
+
+        events: list[tuple[str, object, object]] = []
+        config.on_change(lambda key, old, new: events.append((key, old, new)))
+
+        cfg_file.write_text(json.dumps({"y": 2}))
+        config.reload()
+
+        keys = {key for key, _old, _new in events}
+        assert "x" in keys  # removed
+        assert "y" in keys  # added
+
+    def test_no_change_no_event(self, tmp_path: Path) -> None:
+        cfg_file = tmp_path / "c.json"
+        cfg_file.write_text(json.dumps({"x": 1}))
+        config = Config([Config.json_file(cfg_file)])
+
+        events: list[tuple[str, object, object]] = []
+        config.on_change(lambda key, old, new: events.append((key, old, new)))
+
+        # No content change
+        config.reload()
+        assert events == []
+
+    def test_multiple_listeners_fire_in_registration_order(self, tmp_path: Path) -> None:
+        cfg_file = tmp_path / "c.json"
+        cfg_file.write_text(json.dumps({"x": 1}))
+        config = Config([Config.json_file(cfg_file)])
+
+        order: list[str] = []
+        config.on_change(lambda k, o, n: order.append(f"first:{k}"))
+        config.on_change(lambda k, o, n: order.append(f"second:{k}"))
+
+        cfg_file.write_text(json.dumps({"x": 2}))
+        config.reload()
+
+        # Both listeners fire for the changed key, in registration order
+        assert order == ["first:x", "second:x"]
+
+    def test_unsubscribe_stops_notifications(self, tmp_path: Path) -> None:
+        cfg_file = tmp_path / "c.json"
+        cfg_file.write_text(json.dumps({"x": 1}))
+        config = Config([Config.json_file(cfg_file)])
+
+        events: list[tuple[str, object, object]] = []
+        unsubscribe = config.on_change(lambda k, o, n: events.append((k, o, n)))
+        unsubscribe()
+
+        cfg_file.write_text(json.dumps({"x": 2}))
+        config.reload()
+        assert events == []

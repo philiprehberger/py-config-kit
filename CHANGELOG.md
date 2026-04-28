@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.0 (2026-04-27)
+
+- Add `Config.on_change(callback)` observer hook that fires `(key, old, new)` for every dotted key whose value differs after a `reload()`
+- Listener registration returns an unsubscribe callable
+- Same-value reloads are silent — callbacks fire only on actual changes
+
 ## 0.3.0 (2026-04-01)
 
 - Add schema validation with `ConfigSchema` for defining expected keys, types, required/optional, and allowed choices

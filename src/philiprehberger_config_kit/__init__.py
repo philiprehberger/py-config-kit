@@ -184,6 +184,14 @@ class _JsonFileSource(_Source):
         return json.loads(self._path.read_text())
 
 
+class _DictSource(_Source):
+    def __init__(self, values: dict[str, Any]) -> None:
+        self._values = values
+
+    def load(self) -> dict[str, Any]:
+        return copy.deepcopy(self._values)
+
+
 class _EnvSource(_Source):
     def __init__(self, prefix: str = "") -> None:
         self._prefix = prefix
@@ -305,6 +313,16 @@ class Config:
     @staticmethod
     def env(prefix: str = "") -> _Source:
         return _EnvSource(prefix)
+
+    @staticmethod
+    def dict_source(values: dict[str, Any]) -> _Source:
+        """Create a source from an in-memory dict.
+
+        Useful for layering programmatic overrides on top of file/env sources
+        without writing to disk. Values may be flat (``{"db.host": "x"}``) or
+        nested (``{"db": {"host": "x"}}``) — both forms are merged correctly.
+        """
+        return _DictSource(values)
 
     @staticmethod
     def env_file(path: str | Path = ".env", optional: bool = True) -> _Source:
@@ -432,6 +450,33 @@ class Config:
     def has(self, key: str) -> bool:
         """Check if a key exists."""
         return _get_nested(self._data, key) is not _MISSING
+
+    def set(self, key: str, value: Any) -> None:
+        """Set a value at *key* (dot notation supported), firing ``on_change`` listeners.
+
+        Useful for runtime overrides without touching the underlying sources.
+        Listeners receive the dotted *key* with old and new values; they fire
+        only when the value actually changes.
+
+        Args:
+            key: Dotted key path (e.g. ``"db.host"``).
+            value: New value to set.
+        """
+        old = _get_nested(self._data, key)
+        old_value = None if old is _MISSING else old
+
+        parts = key.split(".")
+        target = self._data
+        for part in parts[:-1]:
+            if part not in target or not isinstance(target[part], dict):
+                target[part] = {}
+            target = target[part]
+        target[parts[-1]] = value
+
+        if old_value == value:
+            return
+        for listener in list(self._listeners):
+            listener(key, old_value, value)
 
     def validate(self, schema: ConfigSchema) -> None:
         """Validate the config against a schema.

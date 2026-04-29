@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.0 (2026-04-28)
+
+- Add `Config.dict_source(d)` factory for in-memory dict configuration sources (flat or nested)
+- Add `Config.set(key, value)` runtime mutator that fires `on_change` listeners (only when the value actually changes)
+
 ## 0.4.0 (2026-04-27)
 
 - Add `Config.on_change(callback)` observer hook that fires `(key, old, new)` for every dotted key whose value differs after a `reload()`

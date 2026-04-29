@@ -661,3 +661,65 @@ class TestOnChange:
         cfg_file.write_text(json.dumps({"x": 2}))
         config.reload()
         assert events == []
+
+class TestDictSourceAndSet:
+    def test_dict_source_loads_flat(self) -> None:
+        config = Config([Config.dict_source({"host": "x", "port": 5432})])
+        assert config.get("host") == "x"
+        assert config.get_int("port") == 5432
+
+    def test_dict_source_loads_nested(self) -> None:
+        config = Config([Config.dict_source({"db": {"host": "x", "port": 5432}})])
+        assert config.get("db.host") == "x"
+        assert config.get_int("db.port") == 5432
+
+    def test_dict_source_layers_under_other_sources(self, tmp_path: Path) -> None:
+        cfg_file = tmp_path / "c.json"
+        cfg_file.write_text(json.dumps({"port": 8080}))
+        config = Config([
+            Config.dict_source({"host": "x", "port": 5432}),
+            Config.json_file(cfg_file),
+        ])
+        # File overrides dict source
+        assert config.get("host") == "x"
+        assert config.get_int("port") == 8080
+
+    def test_set_creates_new_key(self) -> None:
+        config = Config([Config.dict_source({})])
+        config.set("port", 5432)
+        assert config.get_int("port") == 5432
+
+    def test_set_overrides_existing_key(self) -> None:
+        config = Config([Config.dict_source({"port": 1})])
+        config.set("port", 99)
+        assert config.get_int("port") == 99
+
+    def test_set_supports_dot_notation(self) -> None:
+        config = Config([Config.dict_source({"db": {"host": "x"}})])
+        config.set("db.host", "y")
+        assert config.get("db.host") == "y"
+
+    def test_set_fires_on_change_listener(self) -> None:
+        config = Config([Config.dict_source({"a": 1})])
+        events: list[tuple[str, object, object]] = []
+        config.on_change(lambda k, o, n: events.append((k, o, n)))
+
+        config.set("a", 2)
+        assert events == [("a", 1, 2)]
+
+    def test_set_does_not_fire_for_same_value(self) -> None:
+        config = Config([Config.dict_source({"a": 1})])
+        events: list[tuple[str, object, object]] = []
+        config.on_change(lambda k, o, n: events.append((k, o, n)))
+
+        config.set("a", 1)
+        assert events == []
+
+    def test_set_for_new_key_reports_none_old(self) -> None:
+        config = Config([Config.dict_source({})])
+        events: list[tuple[str, object, object]] = []
+        config.on_change(lambda k, o, n: events.append((k, o, n)))
+
+        config.set("new", "value")
+        assert events == [("new", None, "value")]
+

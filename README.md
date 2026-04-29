@@ -199,11 +199,39 @@ With `prefix="APP_"`, env vars are mapped:
 
 `get_bool()` accepts: `true`/`false`, `1`/`0`, `yes`/`no`, `on`/`off`
 
+### In-Memory Dict Source
+
+Layer programmatic overrides on top of file/env sources without writing to disk. Both flat and nested forms work:
+
+```python
+from philiprehberger_config_kit import Config
+
+config = Config([
+    Config.defaults({"port": 8080}),
+    Config.dict_source({"db": {"host": "x", "port": 5432}}),  # nested
+    Config.json_file("config.json", optional=True),           # overrides above
+])
+```
+
+### Runtime Mutations with `set()`
+
+`Config.set(key, value)` updates a value at runtime and fires `on_change` listeners — only when the value actually changes.
+
+```python
+config.on_change(lambda key, old, new: print(f"{key}: {old} -> {new}"))
+
+config.set("db.host", "new-host")
+# db.host: localhost -> new-host
+
+config.set("db.host", "new-host")  # same value, listener does NOT fire
+```
+
 ## API
 
 | Function / Class | Description |
 |------------------|-------------|
 | `Config(sources)` | Layered configuration with typed access |
+| `Config.dict_source(values)` | Create an in-memory dict source (flat or nested) |
 | `Config.get(key, default)` | Get a value by key with dot-notation support |
 | `Config.get_str(key, default)` | Get a string value |
 | `Config.get_int(key, default)` | Get an integer value |
@@ -214,6 +242,7 @@ With `prefix="APP_"`, env vars are mapped:
 | `Config.get_float_list(key, sep)` | Split a string value and convert each element to float |
 | `Config.require(*keys)` | Raise `ConfigError` if any keys are missing |
 | `Config.has(key)` | Check if a key exists |
+| `Config.set(key, value)` | Set a value at runtime; fires `on_change` listeners on real change |
 | `Config.validate(schema)` | Validate config against a `ConfigSchema` |
 | `Config.reload()` | Reload configuration from all sources |
 | `Config.on_change(callback)` | Register `(key, old, new)` listener; returns unsubscribe |

@@ -4,6 +4,8 @@
 [![PyPI version](https://img.shields.io/pypi/v/philiprehberger-config-kit.svg)](https://pypi.org/project/philiprehberger-config-kit/)
 [![Last updated](https://img.shields.io/github/last-commit/philiprehberger/py-config-kit)](https://github.com/philiprehberger/py-config-kit/commits/main)
 
+![philiprehberger-config-kit](https://raw.githubusercontent.com/philiprehberger/py-config-kit/main/package-card.webp)
+
 Layered configuration loader merging env vars, files, and defaults.
 
 ## Installation
@@ -226,6 +228,19 @@ config.set("db.host", "new-host")
 config.set("db.host", "new-host")  # same value, listener does NOT fire
 ```
 
+### Composing Configs with `merge()`
+
+Combine two ``Config`` instances without re-reading files or env vars. Values from the right-hand config take precedence using the same deep-merge rules as layered sources.
+
+```python
+base = Config(sources=[Config.defaults({"db": {"host": "localhost", "port": 5432}})])
+overlay = Config(sources=[Config.defaults({"db": {"host": "prod.example.com"}})])
+
+combined = base.merge(overlay)
+combined.get("db.host")  # "prod.example.com"
+combined.get("db.port")  # 5432 (inherited from base)
+```
+
 ## API
 
 | Function / Class | Description |
@@ -250,6 +265,7 @@ config.set("db.host", "new-host")  # same value, listener does NOT fire
 | `Config.to_env(prefix)` | Export as `UPPER_SNAKE_CASE` environment variable pairs |
 | `Config.flatten(prefix)` | Export as flat dict with dot-notation keys |
 | `Config.snapshot()` | Capture current state as a `ConfigSnapshot` |
+| `Config.merge(other)` | Return a new `Config` with this config merged under *other* |
 | `Config.freeze()` | Freeze the config to prevent mutation |
 | `ConfigSchema` | Define expected keys, types, required/optional, and choices |
 | `ConfigSchema.required(key, type, choices)` | Add a required field to the schema |

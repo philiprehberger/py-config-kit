@@ -629,6 +629,30 @@ class Config:
         """
         return ConfigSnapshot(data=copy.deepcopy(self._data))
 
+    def merge(self, other: Config) -> Config:
+        """Return a new ``Config`` whose data is this config merged under *other*.
+
+        Values in *other* override values in ``self`` using the same deep-merge
+        semantics as layered sources — nested dicts merge key-by-key, scalars
+        and lists replace. Useful for composing layered configs at runtime
+        (e.g., a base config plus an environment-specific overlay) without
+        re-loading from disk.
+
+        Args:
+            other: Another ``Config`` whose values take precedence.
+
+        Returns:
+            A fresh ``Config`` containing the merged data. Neither ``self`` nor
+            *other* is mutated; the result is not frozen.
+        """
+        merged_data = _deep_merge(
+            copy.deepcopy(self._data),
+            copy.deepcopy(other._data),
+        )
+        result = Config()
+        result._data = merged_data
+        return result
+
     def freeze(self) -> Config:
         """Return a frozen copy that raises on mutation attempts."""
         self._frozen = True

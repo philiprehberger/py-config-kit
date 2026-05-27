@@ -723,3 +723,38 @@ class TestDictSourceAndSet:
         config.set("new", "value")
         assert events == [("new", None, "value")]
 
+
+class TestMerge:
+    def test_other_overrides_self_for_overlapping_keys(self) -> None:
+        a = Config([Config.dict_source({"port": 3000, "host": "localhost"})])
+        b = Config([Config.dict_source({"port": 8080})])
+
+        merged = a.merge(b)
+        assert merged.get("port") == 8080
+        assert merged.get("host") == "localhost"
+
+    def test_deep_merges_nested_dicts(self) -> None:
+        a = Config([Config.dict_source({"db": {"host": "localhost", "port": 5432}})])
+        b = Config([Config.dict_source({"db": {"host": "prod.example.com"}})])
+
+        merged = a.merge(b)
+        assert merged.get("db.host") == "prod.example.com"
+        assert merged.get("db.port") == 5432
+
+    def test_does_not_mutate_inputs(self) -> None:
+        a = Config([Config.dict_source({"x": 1})])
+        b = Config([Config.dict_source({"x": 2})])
+
+        merged = a.merge(b)
+        assert a.get("x") == 1
+        assert b.get("x") == 2
+        assert merged.get("x") == 2
+
+    def test_merged_config_not_frozen(self) -> None:
+        a = Config([Config.dict_source({"x": 1})])
+        b = Config([Config.dict_source({"y": 2})])
+
+        merged = a.merge(b)
+        merged.set("x", 99)
+        assert merged.get("x") == 99
+

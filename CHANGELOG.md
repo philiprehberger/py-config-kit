@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.0 (2026-05-26)
+
+- Add `Config.merge(other)` to compose two configs using the same deep-merge semantics as layered sources, without re-reading files or env vars
+- Add package-card image to README
+
 ## 0.5.0 (2026-04-28)
 
 - Add `Config.dict_source(d)` factory for in-memory dict configuration sources (flat or nested)

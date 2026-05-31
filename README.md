@@ -228,6 +228,45 @@ config.set("db.host", "new-host")
 config.set("db.host", "new-host")  # same value, listener does NOT fire
 ```
 
+### Loading Directly from Env Vars with `from_env()`
+
+Skip building a full source list when you only need env vars. The prefix-matching, lowercasing, and `__` -> `.` rules are identical to `Config.env()`.
+
+```python
+from philiprehberger_config_kit import Config
+
+# APP_DB__HOST=localhost APP_DB__PORT=5432
+config = Config.from_env("APP_")
+config.get("db.host")  # "localhost"
+config.get_int("db.port")  # 5432
+
+# Keep the prefix in the resulting keys
+config = Config.from_env("APP_", strip_prefix=False)
+config.get("app_db.host")  # "localhost"
+```
+
+### Slicing a Config with `subset()`
+
+Return a new Config restricted to keys under a dot-notation prefix. By default the prefix is stripped from the resulting keys.
+
+```python
+from philiprehberger_config_kit import Config
+
+config = Config([
+    Config.dict_source({
+        "db": {"host": "localhost", "port": 5432},
+        "cache": {"ttl": 60},
+    }),
+])
+
+db = config.subset("db.")
+db.get("host")       # "localhost"
+db.get_int("port")   # 5432
+
+db_full = config.subset("db.", strip_prefix=False)
+db_full.get("db.host")  # "localhost"
+```
+
 ### Composing Configs with `merge()`
 
 Combine two ``Config`` instances without re-reading files or env vars. Values from the right-hand config take precedence using the same deep-merge rules as layered sources.
@@ -266,6 +305,8 @@ combined.get("db.port")  # 5432 (inherited from base)
 | `Config.flatten(prefix)` | Export as flat dict with dot-notation keys |
 | `Config.snapshot()` | Capture current state as a `ConfigSnapshot` |
 | `Config.merge(other)` | Return a new `Config` with this config merged under *other* |
+| `Config.from_env(prefix, *, strip_prefix=True)` | Classmethod: build a `Config` from env vars matching *prefix* |
+| `Config.subset(prefix, *, strip_prefix=True)` | Return a new `Config` containing only keys under *prefix* |
 | `Config.freeze()` | Freeze the config to prevent mutation |
 | `ConfigSchema` | Define expected keys, types, required/optional, and choices |
 | `ConfigSchema.required(key, type, choices)` | Add a required field to the schema |

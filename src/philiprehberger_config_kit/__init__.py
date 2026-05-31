@@ -328,6 +328,27 @@ class Config:
     def env_file(path: str | Path = ".env", optional: bool = True) -> _Source:
         return _EnvFileSource(path, optional)
 
+    @classmethod
+    def from_env(cls, prefix: str = "", *, strip_prefix: bool = True) -> Config:
+        """Build a Config from environment variables matching *prefix*.
+
+        Args:
+            prefix: Only env vars starting with this prefix are loaded.
+                Empty string loads all env vars.
+            strip_prefix: When True (default), the prefix is removed from
+                keys (e.g. ``APP_DB_HOST`` becomes ``DB_HOST`` with
+                ``prefix="APP_"``).
+        """
+        prefix_lower = prefix.lower()
+        values: dict[str, Any] = {}
+        for key, value in os.environ.items():
+            if prefix and not key.lower().startswith(prefix_lower):
+                continue
+            clean = key[len(prefix):] if (prefix and strip_prefix) else key
+            clean = clean.lower().replace("__", ".")
+            values[clean] = value
+        return cls([cls.dict_source(values)])
+
     # --- Typed getters ---
 
     def get(self, key: str, default: Any = _MISSING) -> Any:
@@ -652,6 +673,25 @@ class Config:
         result = Config()
         result._data = merged_data
         return result
+
+    def subset(self, prefix: str, *, strip_prefix: bool = True) -> Config:
+        """Return a new Config containing only keys with *prefix*.
+
+        Args:
+            prefix: Dot-notation prefix (e.g. ``"db."``).
+            strip_prefix: When True (default), the prefix is removed from
+                the resulting keys.
+        """
+        flat = _flatten_dict(self._data)
+        selected: dict[str, Any] = {}
+        for key, value in flat.items():
+            if not key.startswith(prefix):
+                continue
+            clean = key[len(prefix):] if strip_prefix else key
+            if not clean:
+                continue
+            selected[clean] = value
+        return Config([Config.dict_source(_unflatten(selected))])
 
     def freeze(self) -> Config:
         """Return a frozen copy that raises on mutation attempts."""

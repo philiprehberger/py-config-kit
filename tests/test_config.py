@@ -758,3 +758,71 @@ class TestMerge:
         merged.set("x", 99)
         assert merged.get("x") == 99
 
+
+class TestFromEnv:
+    def test_loads_only_matching_prefix(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("APP_HOST", "127.0.0.1")
+        monkeypatch.setenv("APP_PORT", "3306")
+        monkeypatch.setenv("OTHER_VALUE", "ignored")
+        config = Config.from_env("APP_")
+        assert config.get("host") == "127.0.0.1"
+        assert config.get("port") == "3306"
+        assert not config.has("other_value")
+        assert not config.has("app_host")
+
+    def test_strip_prefix_false_keeps_full_names(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("APP_HOST", "127.0.0.1")
+        config = Config.from_env("APP_", strip_prefix=False)
+        assert config.get("app_host") == "127.0.0.1"
+        assert not config.has("host")
+
+    def test_nested_via_double_underscore(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("APP_DB__PORT", "5432")
+        config = Config.from_env("APP_")
+        assert config.get("db.port") == "5432"
+
+    def test_empty_prefix_loads_all(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("SOME_KEY", "value")
+        config = Config.from_env()
+        assert config.get("some_key") == "value"
+
+
+class TestSubset:
+    def test_returns_only_matching_keys_and_strips_prefix(self) -> None:
+        config = Config([
+            Config.dict_source({
+                "db": {"host": "localhost", "port": 5432},
+                "cache": {"ttl": 60},
+            }),
+        ])
+        sub = config.subset("db.")
+        assert sub.get("host") == "localhost"
+        assert sub.get_int("port") == 5432
+        assert not sub.has("ttl")
+        assert not sub.has("cache.ttl")
+
+    def test_strip_prefix_false_keeps_full_keys(self) -> None:
+        config = Config([
+            Config.dict_source({"db": {"host": "localhost", "port": 5432}}),
+        ])
+        sub = config.subset("db.", strip_prefix=False)
+        assert sub.get("db.host") == "localhost"
+        assert sub.get_int("db.port") == 5432
+        assert not sub.has("host")
+
+    def test_empty_when_no_match(self) -> None:
+        config = Config([Config.dict_source({"a": 1, "b": 2})])
+        sub = config.subset("missing.")
+        assert sub.to_dict() == {}
+
+    def test_preserves_value_types(self) -> None:
+        config = Config([
+            Config.dict_source({"db": {"port": 5432, "ssl": True}}),
+        ])
+        sub = config.subset("db.")
+        assert sub.to_dict() == {"port": 5432, "ssl": True}
+

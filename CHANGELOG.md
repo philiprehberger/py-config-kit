@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.7.0 (2026-05-30)
+
+- Add `Config.from_env(prefix)` classmethod for loading config from env vars
+- Add `Config.subset(prefix)` to slice a Config by key prefix
+
 ## 0.6.0 (2026-05-26)
 
 - Add `Config.merge(other)` to compose two configs using the same deep-merge semantics as layered sources, without re-reading files or env vars
